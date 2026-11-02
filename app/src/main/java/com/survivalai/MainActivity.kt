@@ -38,10 +38,13 @@ class MainActivity : ComponentActivity() {
 private fun SurvivalApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var apiKey by remember { mutableStateOf(ApiKeyStore.read(context).orEmpty()) }
+    var hasKey by remember { mutableStateOf(!ApiKeyStore.read(context).isNullOrBlank()) }
+    var setupKey by remember { mutableStateOf("") }
+    var changeKey by remember { mutableStateOf("") }
+    var showKeySettings by remember { mutableStateOf(false) }
     var model by remember { mutableStateOf("openai/gpt-oss-120b") }
     var prompt by remember { mutableStateOf("") }
-    var answer by remember { mutableStateOf("أهلاً بك أيها الناجي! شغّل Minecraft ثم افتح المساعد العائم للحصول على إرشادات أثناء اللعب.") }
+    var answer by remember { mutableStateOf("أهلاً بك أيها الناجي! اختر مساعدة سريعة أو اكتب سؤالك.") }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("جاهز للمغامرة") }
 
@@ -51,6 +54,17 @@ private fun SurvivalApp() {
         "كيف أستعد لدخول Nether بأمان؟",
         "اشرح لي بناء مزرعة طعام بسيطة في Bedrock."
     )
+
+    fun launchMinecraft() {
+        val launch = context.packageManager.getLaunchIntentForPackage("com.mojang.minecraftpe")
+        if (launch != null) {
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { context.startActivity(launch) }
+                .onFailure { status = "تعذر فتح Minecraft: ${it.message}" }
+        } else {
+            status = "Minecraft Bedrock غير مثبتة أو لا تملك أيقونة تشغيل متاحة."
+        }
+    }
 
     MaterialTheme(
         colorScheme = darkColorScheme(
@@ -65,108 +79,118 @@ private fun SurvivalApp() {
                 Brush.verticalGradient(listOf(Color(0xFF071526), Color(0xFF123A50), Color(0xFF071526)))
             )
         ) {
-            Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("MINECRAFT", style = MaterialTheme.typography.labelLarge, color = Color(0xFF8BEA9A), fontWeight = FontWeight.Black)
-                    Text("SURVIVAL AI", style = MaterialTheme.typography.headlineLarge, color = Color.White, fontWeight = FontWeight.ExtraBold)
-                    Text("رفيقك الذكي في عالم البقاء", color = Color(0xFFB7D4E8))
-                }
-
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xCC16334B)),
-                    shape = RoundedCornerShape(24.dp)
+            if (!hasKey) {
+                Column(
+                    Modifier.align(Alignment.Center).fillMaxWidth().padding(22.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("ابدأ المغامرة", style = MaterialTheme.typography.titleLarge, color = Color.White)
-                        Text("شغّل اللعبة مباشرة، ثم افتح النافذة العائمة فوقها.", color = Color(0xFFC4D8E8))
-                        Button(
-                            onClick = {
-                                val launch = context.packageManager.getLaunchIntentForPackage("com.mojang.minecraftpe")
-                                if (launch != null) {
-                                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    context.startActivity(launch)
-                                } else status = "لم يتم العثور على Minecraft. ثبّت Minecraft Bedrock أولاً."
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18B94D))
-                        ) { Text("العب الآن  🎮", fontWeight = FontWeight.Bold) }
-                        OutlinedButton(
-                            onClick = {
-                                if (Settings.canDrawOverlays(context)) {
-                                    context.startForegroundService(Intent(context, OverlayService::class.java))
-                                    status = "النافذة العائمة قيد التشغيل"
-                                } else {
-                                    context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
-                                    status = "امنح إذن الظهور فوق التطبيقات ثم عد إلى هنا"
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("تشغيل المساعد العائم") }
-                    }
+                    Text("SURVIVAL AI", style = MaterialTheme.typography.headlineLarge, color = Color.White, fontWeight = FontWeight.ExtraBold)
+                    Text("إعداد المساعد لأول مرة", color = Color(0xFF8BEA9A), style = MaterialTheme.typography.titleLarge)
+                    Text("أدخل مفتاح Groq API مرة واحدة. سيُحفظ مشفّراً على هاتفك ولن تحتاج إلى إدخاله عند كل تشغيل.", color = Color(0xFFB7D4E8))
+                    OutlinedTextField(
+                        value = setupKey, onValueChange = { setupKey = it.trim() },
+                        label = { Text("مفتاح Groq API") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true, modifier = Modifier.fillMaxWidth()
+                    )
+                    Button(
+                        enabled = setupKey.startsWith("gsk_"),
+                        onClick = {
+                            ApiKeyStore.save(context, setupKey)
+                            setupKey = ""
+                            hasKey = true
+                            status = "تم حفظ المفتاح المشفر على الجهاز"
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("حفظ ومتابعة") }
+                    Text("المفتاح يبقى محلياً ولا يُرسل إلى GitHub. لا تشاركه مع أي شخص.", color = Color(0xFF9AB8CC), style = MaterialTheme.typography.bodySmall)
                 }
-
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xCC10243A)), shape = RoundedCornerShape(22.dp)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("اتصال Groq AI", style = MaterialTheme.typography.titleMedium, color = Color.White)
-                        OutlinedTextField(
-                            value = apiKey, onValueChange = { apiKey = it },
-                            label = { Text("مفتاح Groq API") },
-                            visualTransformation = PasswordVisualTransformation(),
-                            singleLine = true, modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = model, onValueChange = { model = it },
-                            label = { Text("اسم النموذج") }, singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Button(onClick = {
-                            ApiKeyStore.save(context, apiKey.trim())
-                            status = "تم حفظ المفتاح على الجهاز"
-                        }, modifier = Modifier.fillMaxWidth()) { Text("حفظ المفتاح") }
-                        Text("للاختبار الشخصي. لا ترفع المفتاح إلى GitHub أو تشاركه مع أحد.", color = Color(0xFFB7D4E8), style = MaterialTheme.typography.bodySmall)
+            } else {
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("MINECRAFT", style = MaterialTheme.typography.labelLarge, color = Color(0xFF8BEA9A), fontWeight = FontWeight.Black)
+                        Text("SURVIVAL AI", style = MaterialTheme.typography.headlineLarge, color = Color.White, fontWeight = FontWeight.ExtraBold)
+                        Text("رفيقك الذكي في عالم البقاء", color = Color(0xFFB7D4E8))
                     }
-                }
 
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xCC10243A)), shape = RoundedCornerShape(22.dp)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("اسأل المساعد", style = MaterialTheme.typography.titleMedium, color = Color.White)
-                        quickPrompts.forEach { question ->
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xCC16334B)), shape = RoundedCornerShape(24.dp)) {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("ابدأ المغامرة", style = MaterialTheme.typography.titleLarge, color = Color.White)
+                            Text("افتح اللعبة ثم شغّل المساعد العائم فوقها.", color = Color(0xFFC4D8E8))
+                            Button(onClick = { launchMinecraft() }, modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18B94D))) {
+                                Text("العب الآن 🎮", fontWeight = FontWeight.Bold)
+                            }
                             OutlinedButton(
                                 onClick = {
-                                    if (apiKey.isBlank()) { status = "أدخل مفتاح Groq أولاً"; return@OutlinedButton }
+                                    if (Settings.canDrawOverlays(context)) {
+                                        context.startForegroundService(Intent(context, OverlayService::class.java))
+                                        status = "تم طلب تشغيل النافذة العائمة"
+                                    } else {
+                                        context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
+                                        status = "امنح إذن الظهور فوق التطبيقات ثم ارجع للتطبيق"
+                                    }
+                                }, modifier = Modifier.fillMaxWidth()
+                            ) { Text("تشغيل المساعد العائم") }
+                        }
+                    }
+
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xCC10243A)), shape = RoundedCornerShape(22.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("إعدادات الذكاء الاصطناعي", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            Text("المفتاح محفوظ ومشفّر على هذا الجهاز.", color = Color(0xFF9ED9AE))
+                            OutlinedTextField(value = model, onValueChange = { model = it }, label = { Text("اسم النموذج") },
+                                singleLine = true, modifier = Modifier.fillMaxWidth())
+                            OutlinedButton(onClick = { showKeySettings = !showKeySettings; changeKey = "" }, modifier = Modifier.fillMaxWidth()) {
+                                Text(if (showKeySettings) "إخفاء تغيير المفتاح" else "تغيير مفتاح Groq")
+                            }
+                            if (showKeySettings) {
+                                OutlinedTextField(value = changeKey, onValueChange = { changeKey = it.trim() },
+                                    label = { Text("المفتاح الجديد") }, visualTransformation = PasswordVisualTransformation(),
+                                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                                Button(enabled = changeKey.startsWith("gsk_"), onClick = {
+                                    ApiKeyStore.save(context, changeKey)
+                                    changeKey = ""
+                                    showKeySettings = false
+                                    status = "تم تحديث المفتاح المشفر"
+                                }, modifier = Modifier.fillMaxWidth()) { Text("حفظ المفتاح الجديد") }
+                            }
+                        }
+                    }
+
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xCC10243A)), shape = RoundedCornerShape(22.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("اسأل المساعد", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            quickPrompts.forEach { question ->
+                                OutlinedButton(enabled = !busy, onClick = {
                                     busy = true
                                     scope.launch {
-                                        val result = GroqClient.ask(apiKey.trim(), model.trim(), question)
+                                        val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), question)
                                         answer = result.getOrElse { "تعذر الاتصال: ${it.message ?: "خطأ غير معروف"}" }
                                         busy = false
                                     }
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) { Text(question) }
-                        }
-                        OutlinedTextField(
-                            value = prompt, onValueChange = { prompt = it },
-                            label = { Text("سؤال اختياري") }, modifier = Modifier.fillMaxWidth(), minLines = 2
-                        )
-                        Button(
-                            enabled = !busy && apiKey.isNotBlank() && prompt.isNotBlank(),
-                            onClick = {
+                                }, modifier = Modifier.fillMaxWidth()) { Text(question) }
+                            }
+                            OutlinedTextField(value = prompt, onValueChange = { prompt = it },
+                                label = { Text("سؤال اختياري") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                            Button(enabled = !busy && prompt.isNotBlank(), onClick = {
                                 busy = true
+                                val question = prompt
                                 scope.launch {
-                                    val result = GroqClient.ask(apiKey.trim(), model.trim(), prompt)
+                                    val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), question)
                                     answer = result.getOrElse { "تعذر الاتصال: ${it.message ?: "خطأ غير معروف"}" }
                                     busy = false
                                 }
-                            }, modifier = Modifier.fillMaxWidth()
-                        ) { Text(if (busy) "يفكر..." else "إرسال السؤال") }
-                        Text(answer, color = Color.White)
+                            }, modifier = Modifier.fillMaxWidth()) { Text(if (busy) "يفكر..." else "إرسال السؤال") }
+                            Text(answer, color = Color.White)
+                        }
                     }
+                    Text("الحالة: $status", color = Color(0xFF9AC3D8))
+                    Text("الإصدار 0.3.0 Alpha • Bedrock companion", color = Color(0xFF6F91A8), style = MaterialTheme.typography.labelSmall)
                 }
-                Text("الحالة: $status", color = Color(0xFF9AC3D8))
-                Text("الإصدار 0.2.0 Alpha • Bedrock companion", color = Color(0xFF6F91A8), style = MaterialTheme.typography.labelSmall)
             }
         }
     }
