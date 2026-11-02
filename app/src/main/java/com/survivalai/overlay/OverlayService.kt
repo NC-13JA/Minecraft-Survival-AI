@@ -110,7 +110,7 @@ class OverlayService : Service() {
         }
         actions.addView(answerView)
         scroll.addView(actions)
-        root.addView(scroll, LinearLayout.LayoutParams(300, 440))
+        root.addView(scroll, LinearLayout.LayoutParams(dp(300), dp(440)))
 
         val footer = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         footer.addView(actionButton("تصغير") { root.findViewWithTag<View>("panel_scroll")?.visibility = View.GONE })
@@ -120,7 +120,7 @@ class OverlayService : Service() {
         return root
     }
 
-    private fun actionButton(label: String, action: () -> Unit): Button =
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()\n\n    private fun actionButton(label: String, action: () -> Unit): Button =
         Button(this).apply {
             text = label
             textSize = 12f
