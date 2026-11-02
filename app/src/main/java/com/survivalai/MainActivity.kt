@@ -195,6 +195,26 @@ private fun SurvivalApp() {
                             Text("ملف عالمك وذاكرة النجاة", style = MaterialTheme.typography.titleMedium, color = Color.White)
                             Text("تُحفظ هذه البيانات محلياً وتُرفق تلقائياً بأسئلتك.", color = Color(0xFFB7D4E8))
                             OutlinedTextField(value = worldSeed, onValueChange = { worldSeed = it }, label = { Text("World Seed (إدخال يدوي)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                            OutlinedButton(onClick = {
+                                val seedToCopy = worldSeed.trim()
+                                if (seedToCopy.isNotEmpty()) {
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Minecraft World Seed", seedToCopy))
+                                    status = "نُسخ Seed. الصقه في خانة Seed داخل Chunkbase."
+                                } else {
+                                    status = "أدخل Seed واحفظه أولاً، أو أدخله مباشرة في Chunkbase."
+                                }
+                                runCatching {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.chunkbase.com/apps/seed-map")))
+                                }.onFailure { status = "تعذر فتح صفحة Chunkbase: ${it.message}" }
+                            }, modifier = Modifier.fillMaxWidth()) {
+                                Text("فتح خريطة العالم في Chunkbase")
+                            }
+                            Text(
+                                "تُفتح الخريطة في المتصفح ويُنسخ Seed تلقائياً إن كان محفوظاً. اختر Bedrock والإصدار الذي وُلّدت به المنطقة؛ نتائج الموقع لا تُقرأ تلقائياً داخل التطبيق حالياً.",
+                                color = Color(0xFFB7D4E8),
+                                style = MaterialTheme.typography.bodySmall
+                            )
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(value = worldX, onValueChange = { worldX = it }, label = { Text("X") }, modifier = Modifier.weight(1f), singleLine = true)
                                 OutlinedTextField(value = worldY, onValueChange = { worldY = it }, label = { Text("Y") }, modifier = Modifier.weight(1f), singleLine = true)
@@ -218,7 +238,7 @@ private fun SurvivalApp() {
                             OutlinedButton(enabled = !busy, onClick = {
                                 busy = true
                                 scope.launch {
-                                    val nextPrompt = worldContext() + "\\n\\n" +
+                                    val nextPrompt = worldContext() + "\n\n" +
                                         "حلل سياق اللاعب الحالي واقترح خطوة واحدة تالية واضحة وقابلة للتنفيذ في Minecraft Bedrock Survival. اذكر سبب اختيارها وما يحتاجه اللاعب. إذا كانت معلومات حالة العالم ناقصة فاطلب صورة شاشة أو معلومة محددة ولا تخمن."
                                     val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), nextPrompt)
                                     answer = result.getOrElse { "تعذر الاتصال: ${it.message ?: "خطأ غير معروف"}" }
@@ -229,7 +249,7 @@ private fun SurvivalApp() {
                                 OutlinedButton(enabled = !busy, onClick = {
                                     busy = true
                                     scope.launch {
-                                        val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), worldContext() + "\\n\\n" + question)
+                                        val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), worldContext() + "\n\n" + question)
                                         answer = result.getOrElse { "تعذر الاتصال: ${it.message ?: "خطأ غير معروف"}" }
                                         busy = false
                                     }
@@ -247,9 +267,9 @@ private fun SurvivalApp() {
                                 }
                                 scope.launch {
                                     val seedInstruction = if (seedMatch != null)
-                                        "\\nتم التعرف على Seed من رسالة اللاعب وحفظه محلياً: ${worldSeed}. استخدمه عند تحليل العالم، ولا تعتبره إحداثيات."
+                                        "\nتم التعرف على Seed من رسالة اللاعب وحفظه محلياً: ${worldSeed}. استخدمه عند تحليل العالم، ولا تعتبره إحداثيات."
                                     else ""
-                                    val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), worldContext() + seedInstruction + "\\n\\n" + question)
+                                    val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), worldContext() + seedInstruction + "\n\n" + question)
                                     answer = result.getOrElse { "تعذر الاتصال: ${it.message ?: "خطأ غير معروف"}" }
                                     busy = false
                                 }
