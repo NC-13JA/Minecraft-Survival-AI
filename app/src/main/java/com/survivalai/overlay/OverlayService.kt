@@ -120,7 +120,9 @@ class OverlayService : Service() {
         return root
     }
 
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()\n\n    private fun actionButton(label: String, action: () -> Unit): Button =
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun actionButton(label: String, action: () -> Unit): Button =
         Button(this).apply {
             text = label
             textSize = 12f
