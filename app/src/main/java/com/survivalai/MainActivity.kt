@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
 private fun SurvivalApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var status by remember { mutableStateOf("جاهز للمغامرة") }
     val captureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
             val captureIntent = Intent(context, com.survivalai.capture.ScreenCaptureService::class.java).apply {
@@ -62,7 +63,6 @@ private fun SurvivalApp() {
     var prompt by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf("أهلاً بك أيها الناجي! اختر مساعدة سريعة أو اكتب سؤالك.") }
     var busy by remember { mutableStateOf(false) }
-    var status by remember { mutableStateOf("جاهز للمغامرة") }
     val worldPrefs = remember { context.getSharedPreferences("survival_world", android.content.Context.MODE_PRIVATE) }
     var worldSeed by remember { mutableStateOf(worldPrefs.getString("seed", "") ?: "") }
     var worldX by remember { mutableStateOf(worldPrefs.getString("x", "") ?: "") }
@@ -73,6 +73,15 @@ private fun SurvivalApp() {
     var reminderInterval by remember { mutableStateOf(worldPrefs.getInt("interval", 30)) }
     var dataSaver by remember { mutableStateOf(worldPrefs.getBoolean("data_saver", true)) }
     var explorationRadius by remember { mutableIntStateOf(worldPrefs.getInt("exploration_radius", 500).coerceIn(500, 2000)) }
+
+    LaunchedEffect(Unit) {
+        val activity = context as? ComponentActivity
+        if (activity?.intent?.getBooleanExtra("com.survivalai.EXTRA_CAPTURE_SCREEN", false) == true) {
+            activity.intent.removeExtra("com.survivalai.EXTRA_CAPTURE_SCREEN")
+            val manager = context.getSystemService(android.content.Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            captureLauncher.launch(manager.createScreenCaptureIntent())
+        }
+    }
 
     fun worldContext(): String = """
         بيانات عالم اللاعب:
