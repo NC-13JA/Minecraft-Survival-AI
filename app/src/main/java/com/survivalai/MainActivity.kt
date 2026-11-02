@@ -56,6 +56,7 @@ private fun SurvivalApp() {
     var goalText by remember { mutableStateOf(worldPrefs.getString("goal", "إنشاء مأوى آمن وجمع الطعام") ?: "") }
     var reminderInterval by remember { mutableStateOf(worldPrefs.getInt("interval", 30)) }
     var dataSaver by remember { mutableStateOf(worldPrefs.getBoolean("data_saver", true)) }
+    var explorationRadius by remember { mutableIntStateOf(worldPrefs.getInt("exploration_radius", 500).coerceIn(500, 2000)) }
 
     fun worldContext(): String = """
         بيانات عالم اللاعب:
@@ -63,6 +64,8 @@ private fun SurvivalApp() {
         الإحداثيات المدخلة: X=${worldX.ifBlank { "غير معروفة" }}, Y=${worldY.ifBlank { "غير معروفة" }}, Z=${worldZ.ifBlank { "غير معروفة" }}
         الهدف الحالي: ${goalText.ifBlank { "لم يحدد" }}
         ملاحظات العالم والمواقع: ${worldNotes.ifBlank { "لا توجد ملاحظات" }}
+        نطاق الاستكشاف حول اللاعب: ${explorationRadius} بلوكة في جميع الاتجاهات.
+        هذا النطاق إعداد مبدئي للتحليل التدريجي، وليس دليلاً على أن الخريطة حُللت فعلياً.
         فترة المراقبة المطلوبة: ${reminderInterval} ثانية.
         وضع توفير البيانات: ${if (dataSaver) "مفعّل" else "متوقف"}.
         لا تفترض أن Seed أو الإحداثيات صحيحة إن لم يقدمها اللاعب، ولا تخترع أي موقع.
@@ -73,7 +76,8 @@ private fun SurvivalApp() {
             .putString("seed", worldSeed.trim())
             .putString("x", worldX.trim()).putString("y", worldY.trim()).putString("z", worldZ.trim())
             .putString("notes", worldNotes.trim()).putString("goal", goalText.trim())
-            .putInt("interval", reminderInterval).putBoolean("data_saver", dataSaver).apply()
+            .putInt("interval", reminderInterval).putBoolean("data_saver", dataSaver)
+            .putInt("exploration_radius", explorationRadius).apply()
         status = "حُفظت بيانات العالم والأهداف على الهاتف"
     }
 
@@ -222,6 +226,14 @@ private fun SurvivalApp() {
                             Text("ملف عالمك وذاكرة النجاة", style = MaterialTheme.typography.titleMedium, color = Color.White)
                             Text("تُحفظ هذه البيانات محلياً وتُرفق تلقائياً بأسئلتك.", color = Color(0xFFB7D4E8))
                             Text("Seed محفوظ محلياً ويُرفق تلقائياً بطلبات المساعد.", color = Color(0xFFB7D4E8), style = MaterialTheme.typography.bodySmall)
+                            Text("نطاق الاستكشاف حول موقع اللاعب: ${explorationRadius} بلوكة", color = Color.White)
+                            Slider(
+                                value = explorationRadius.toFloat(),
+                                onValueChange = { explorationRadius = (it.toInt() / 250) * 250 },
+                                valueRange = 500f..2000f,
+                                steps = 5
+                            )
+                            Text("يمكن تغيير النطاق من 500 إلى 2000 بلوكة، والإعداد الافتراضي 500.", color = Color(0xFFB7D4E8), style = MaterialTheme.typography.bodySmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(value = worldX, onValueChange = { worldX = it }, label = { Text("X") }, modifier = Modifier.weight(1f), singleLine = true)
                                 OutlinedTextField(value = worldY, onValueChange = { worldY = it }, label = { Text("Y") }, modifier = Modifier.weight(1f), singleLine = true)
