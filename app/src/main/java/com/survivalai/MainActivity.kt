@@ -47,6 +47,35 @@ private fun SurvivalApp() {
     var answer by remember { mutableStateOf("أهلاً بك أيها الناجي! اختر مساعدة سريعة أو اكتب سؤالك.") }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("جاهز للمغامرة") }
+    val worldPrefs = remember { context.getSharedPreferences("survival_world", android.content.Context.MODE_PRIVATE) }
+    var worldSeed by remember { mutableStateOf(worldPrefs.getString("seed", "") ?: "") }
+    var worldX by remember { mutableStateOf(worldPrefs.getString("x", "") ?: "") }
+    var worldY by remember { mutableStateOf(worldPrefs.getString("y", "") ?: "") }
+    var worldZ by remember { mutableStateOf(worldPrefs.getString("z", "") ?: "") }
+    var worldNotes by remember { mutableStateOf(worldPrefs.getString("notes", "") ?: "") }
+    var goalText by remember { mutableStateOf(worldPrefs.getString("goal", "إنشاء مأوى آمن وجمع الطعام") ?: "") }
+    var reminderInterval by remember { mutableStateOf(worldPrefs.getInt("interval", 30)) }
+    var dataSaver by remember { mutableStateOf(worldPrefs.getBoolean("data_saver", true)) }
+
+    fun worldContext(): String = """
+        بيانات عالم اللاعب:
+        Seed: ${worldSeed.ifBlank { "غير معروف" }}
+        الإحداثيات المدخلة: X=${worldX.ifBlank { "غير معروفة" }}, Y=${worldY.ifBlank { "غير معروفة" }}, Z=${worldZ.ifBlank { "غير معروفة" }}
+        الهدف الحالي: ${goalText.ifBlank { "لم يحدد" }}
+        ملاحظات العالم والمواقع: ${worldNotes.ifBlank { "لا توجد ملاحظات" }}
+        فترة المراقبة المطلوبة: ${reminderInterval} ثانية.
+        وضع توفير البيانات: ${if (dataSaver) "مفعّل" else "متوقف"}.
+        لا تفترض أن Seed أو الإحداثيات صحيحة إن لم يقدمها اللاعب، ولا تخترع أي موقع.
+    """.trimIndent()
+
+    fun saveWorldProfile() {
+        worldPrefs.edit()
+            .putString("seed", worldSeed.trim())
+            .putString("x", worldX.trim()).putString("y", worldY.trim()).putString("z", worldZ.trim())
+            .putString("notes", worldNotes.trim()).putString("goal", goalText.trim())
+            .putInt("interval", reminderInterval).putBoolean("data_saver", dataSaver).apply()
+        status = "حُفظت بيانات العالم والأهداف على الهاتف"
+    }
 
     val quickPrompts = listOf(
         "ما أفضل خطوة أبدأ بها الآن في عالم Survival؟",
@@ -161,6 +190,28 @@ private fun SurvivalApp() {
                         }
                     }
 
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xCC16334B)), shape = RoundedCornerShape(22.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("ملف عالمك وذاكرة النجاة", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            Text("تُحفظ هذه البيانات محلياً وتُرفق تلقائياً بأسئلتك.", color = Color(0xFFB7D4E8))
+                            OutlinedTextField(value = worldSeed, onValueChange = { worldSeed = it }, label = { Text("World Seed (إدخال يدوي)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(value = worldX, onValueChange = { worldX = it }, label = { Text("X") }, modifier = Modifier.weight(1f), singleLine = true)
+                                OutlinedTextField(value = worldY, onValueChange = { worldY = it }, label = { Text("Y") }, modifier = Modifier.weight(1f), singleLine = true)
+                                OutlinedTextField(value = worldZ, onValueChange = { worldZ = it }, label = { Text("Z") }, modifier = Modifier.weight(1f), singleLine = true)
+                            }
+                            OutlinedTextField(value = goalText, onValueChange = { goalText = it }, label = { Text("هدفك الحالي") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                            OutlinedTextField(value = worldNotes, onValueChange = { worldNotes = it }, label = { Text("ملاحظات ومواقع مهمة (المنزل، قرية، منجم...)") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                            Text("فترة المراقبة: $reminderInterval ثانية", color = Color.White)
+                            Slider(value = reminderInterval.toFloat(), onValueChange = { reminderInterval = it.toInt() }, valueRange = 15f..120f, steps = 6)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = dataSaver, onCheckedChange = { dataSaver = it })
+                                Text("توفير البيانات (تقليل التحليلات غير الضرورية)", color = Color.White)
+                            }
+                            Button(onClick = { saveWorldProfile() }, modifier = Modifier.fillMaxWidth()) { Text("حفظ ملف العالم") }
+                        }
+                    }
+
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xCC10243A)), shape = RoundedCornerShape(22.dp)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("اسأل المساعد", style = MaterialTheme.typography.titleMedium, color = Color.White)
@@ -168,7 +219,7 @@ private fun SurvivalApp() {
                                 OutlinedButton(enabled = !busy, onClick = {
                                     busy = true
                                     scope.launch {
-                                        val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), question)
+                                        val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), worldContext() + "\n\n" + question)
                                         answer = result.getOrElse { "تعذر الاتصال: ${it.message ?: "خطأ غير معروف"}" }
                                         busy = false
                                     }
@@ -180,7 +231,7 @@ private fun SurvivalApp() {
                                 busy = true
                                 val question = prompt
                                 scope.launch {
-                                    val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), question)
+                                    val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), worldContext() + "\n\n" + question)
                                     answer = result.getOrElse { "تعذر الاتصال: ${it.message ?: "خطأ غير معروف"}" }
                                     busy = false
                                 }
