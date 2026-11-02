@@ -17,17 +17,11 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.survivalai.security.ApiKeyStore
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 
 class OverlayService : Service() {
     private var windowManager: WindowManager? = null
     private var panel: LinearLayout? = null
     private var layoutParams: WindowManager.LayoutParams? = null
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
@@ -39,47 +33,68 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
         layoutParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            type,
+            dp(220), WindowManager.LayoutParams.WRAP_CONTENT, type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.TOP or Gravity.END; x = dp(12); y = dp(110) }
+        ).apply { gravity = Gravity.TOP or Gravity.END; x = dp(10); y = dp(110) }
         panel?.let { windowManager?.addView(it, layoutParams) }
     }
 
     private fun buildPanel(): LinearLayout {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(9), dp(8), dp(9), dp(8))
+            setPadding(dp(10), dp(9), dp(10), dp(10))
             background = GradientDrawable().apply {
-                setColor(Color.rgb(13, 29, 48)); cornerRadius = dp(16).toFloat()
-                setStroke(dp(2), Color.rgb(48, 183, 220))
+                setColor(Color.rgb(10, 27, 43)); cornerRadius = dp(18).toFloat()
+                setStroke(dp(2), Color.rgb(52, 190, 125))
             }
-            elevation = dp(10).toFloat()
+            elevation = dp(12).toFloat()
         }
         val header = TextView(this).apply {
-            text = "☰  SurvivalAI"
-            textSize = 13f; setTextColor(Color.WHITE)
-            setPadding(dp(8), dp(4), dp(8), dp(6))
+            text = "⚔  SURVIVAL AI   ⋮"
+            textSize = 14f; setTextColor(Color.WHITE)
+            setPadding(dp(7), dp(5), dp(7), dp(9))
         }
         root.addView(header); attachDrag(header)
-        root.addView(Button(this).apply {
-            text = "فتح Minecraft 🎮"; textSize = 12f; isAllCaps = false
-            setTextColor(Color.WHITE)
-            setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(30, 105, 145)))
-            setOnClickListener {
-                val launch = packageManager.getLaunchIntentForPackage("com.mojang.minecraftpe")
-                if (launch != null) {
-                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    runCatching { startActivity(launch) }
-                } else {
-                    android.widget.Toast.makeText(this@OverlayService, "Minecraft Bedrock غير مثبتة", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
+        root.addView(TextView(this).apply {
+            text = "مساعد Minecraft Bedrock"
+            textSize = 11f; setTextColor(Color.rgb(164, 199, 216))
+            setPadding(dp(7), 0, dp(7), dp(7))
+        })
+        root.addView(makeButton("فتح Minecraft  🎮", Color.rgb(29, 130, 77)) {
+            val launch = packageManager.getLaunchIntentForPackage("com.mojang.minecraftpe")
+            if (launch != null) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                runCatching { startActivity(launch) }.onFailure { toast("تعذر فتح Minecraft") }
+            } else toast("Minecraft Bedrock غير مثبتة")
+        })
+        root.addView(makeButton("تصوير الشاشة  📷", Color.rgb(35, 105, 150)) {
+            val launch = packageManager.getLaunchIntentForPackage(packageName)
+            if (launch != null) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                launch.putExtra("com.survivalai.EXTRA_CAPTURE_SCREEN", true)
+                runCatching { startActivity(launch) }.onFailure { toast("تعذر فتح شاشة التصوير") }
+            } else toast("تعذر فتح SurvivalAI")
+        })
+        root.addView(makeButton("إخفاء اللوحة  −", Color.rgb(65, 76, 91)) {
+            panel?.let { runCatching { windowManager?.removeView(it) } }
+            panel = null
+            stopSelf()
         })
         return root
     }
+
+    private fun makeButton(label: String, color: Int, action: () -> Unit) =
+        Button(this).apply {
+            text = label; textSize = 12f; isAllCaps = false
+            setTextColor(Color.WHITE)
+            setPadding(dp(4), 0, dp(4), 0)
+            setBackgroundTintList(android.content.res.ColorStateList.valueOf(color))
+            setOnClickListener { action() }
+        }
+
+    private fun toast(message: String) =
+        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show()
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
@@ -106,13 +121,12 @@ class OverlayService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             manager.createNotificationChannel(NotificationChannel(channelId, "SurvivalAI Overlay", NotificationManager.IMPORTANCE_LOW))
         val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            Notification.Builder(this, channelId).setContentTitle("SurvivalAI يعمل").setContentText("زر فتح Minecraft العائم نشط").setSmallIcon(android.R.drawable.ic_dialog_info).build()
+            Notification.Builder(this, channelId).setContentTitle("SurvivalAI يعمل").setContentText("لوحة المساعد العائمة جاهزة").setSmallIcon(android.R.drawable.ic_dialog_info).build()
         else @Suppress("DEPRECATION") Notification.Builder(this).setContentTitle("SurvivalAI يعمل").setSmallIcon(android.R.drawable.ic_dialog_info).build()
         startForeground(41, notification)
     }
 
     override fun onDestroy() {
-        serviceScope.cancel()
         panel?.let { runCatching { windowManager?.removeView(it) } }
         panel = null
         super.onDestroy()
