@@ -215,11 +215,21 @@ private fun SurvivalApp() {
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xCC10243A)), shape = RoundedCornerShape(22.dp)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("اسأل المساعد", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            OutlinedButton(enabled = !busy, onClick = {
+                                busy = true
+                                scope.launch {
+                                    val nextPrompt = worldContext() + "\\n\\n" +
+                                        "حلل سياق اللاعب الحالي واقترح خطوة واحدة تالية واضحة وقابلة للتنفيذ في Minecraft Bedrock Survival. اذكر سبب اختيارها وما يحتاجه اللاعب. إذا كانت معلومات حالة العالم ناقصة فاطلب صورة شاشة أو معلومة محددة ولا تخمن."
+                                    val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), nextPrompt)
+                                    answer = result.getOrElse { "تعذر الاتصال: ${it.message ?: "خطأ غير معروف"}" }
+                                    busy = false
+                                }
+                            }, modifier = Modifier.fillMaxWidth()) { Text("أعطني الخطوة التالية") }
                             quickPrompts.forEach { question ->
                                 OutlinedButton(enabled = !busy, onClick = {
                                     busy = true
                                     scope.launch {
-                                        val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), worldContext() + "\n\n" + question)
+                                        val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), worldContext() + "\\n\\n" + question)
                                         answer = result.getOrElse { "تعذر الاتصال: ${it.message ?: "خطأ غير معروف"}" }
                                         busy = false
                                     }
@@ -230,8 +240,16 @@ private fun SurvivalApp() {
                             Button(enabled = !busy && prompt.isNotBlank(), onClick = {
                                 busy = true
                                 val question = prompt
+                                val seedMatch = Regex("(?i)(?:world\\\\s*seed|seed|بذرة العالم|سيد)\\\\s*[:=：]?\\\\s*(-?\\\\d{1,20})").find(question)
+                                if (seedMatch != null) {
+                                    worldSeed = seedMatch.groupValues[1]
+                                    worldPrefs.edit().putString("seed", worldSeed).apply()
+                                }
                                 scope.launch {
-                                    val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), worldContext() + "\n\n" + question)
+                                    val seedInstruction = if (seedMatch != null)
+                                        "\\nتم التعرف على Seed من رسالة اللاعب وحفظه محلياً: ${worldSeed}. استخدمه عند تحليل العالم، ولا تعتبره إحداثيات."
+                                    else ""
+                                    val result = GroqClient.ask(ApiKeyStore.read(context).orEmpty(), model.trim(), worldContext() + seedInstruction + "\\n\\n" + question)
                                     answer = result.getOrElse { "تعذر الاتصال: ${it.message ?: "خطأ غير معروف"}" }
                                     busy = false
                                 }
@@ -240,7 +258,7 @@ private fun SurvivalApp() {
                         }
                     }
                     Text("الحالة: $status", color = Color(0xFF9AC3D8))
-                    Text("الإصدار 0.3.0 Alpha • Bedrock companion", color = Color(0xFF6F91A8), style = MaterialTheme.typography.labelSmall)
+                    Text("الإصدار 0.4.0 Alpha • Bedrock companion", color = Color(0xFF6F91A8), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
