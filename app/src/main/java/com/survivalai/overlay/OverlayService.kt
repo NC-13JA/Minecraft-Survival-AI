@@ -31,6 +31,8 @@ class OverlayService : Service() {
     private var windowManager: WindowManager? = null
     private var panel: LinearLayout? = null
     private var answerView: TextView? = null
+    private var contentScroll: ScrollView? = null
+    private var expandButton: Button? = null
     private var layoutParams: WindowManager.LayoutParams? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -52,8 +54,8 @@ class OverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.END
-            x = 16
-            y = 120
+            x = dp(12)
+            y = dp(110)
         }
         panel?.let { windowManager?.addView(it, layoutParams) }
     }
@@ -61,62 +63,72 @@ class OverlayService : Service() {
     private fun buildPanel(): LinearLayout {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(14, 12, 14, 12)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
             background = GradientDrawable().apply {
                 setColor(Color.rgb(13, 29, 48))
-                cornerRadius = 28f
-                setStroke(2, Color.rgb(48, 183, 220))
+                cornerRadius = dp(18).toFloat()
+                setStroke(dp(2), Color.rgb(48, 183, 220))
             }
-            elevation = 16f
+            elevation = dp(10).toFloat()
         }
 
         val header = TextView(this).apply {
-            text = "☰   SurvivalAI     ● متصل"
+            text = "☰   SurvivalAI     ● جاهز"
             textSize = 15f
             setTextColor(Color.WHITE)
-            setPadding(8, 8, 8, 12)
+            setPadding(dp(8), dp(8), dp(8), dp(12))
         }
         root.addView(header)
         attachDrag(header)
 
-        val gameButton = actionButton("العودة إلى Minecraft  🎮") {
+        root.addView(actionButton("فتح Minecraft 🎮") {
             val launch = packageManager.getLaunchIntentForPackage("com.mojang.minecraftpe")
             if (launch != null) {
                 launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(launch)
-            } else showAnswer("لم يتم العثور على Minecraft Bedrock على هذا الجهاز.")
-        }
-        root.addView(gameButton)
+                runCatching { startActivity(launch) }
+                    .onFailure { showAnswer("تعذر فتح Minecraft: ${it.message}") }
+            } else showAnswer("لم يعثر Android على Minecraft Bedrock. تحقق من تثبيت اللعبة.")
+        })
 
         val scroll = ScrollView(this)
+        contentScroll = scroll
         val actions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         actions.addView(actionButton("أعطني الخطوة التالية") { askGroq("أنا ألعب Minecraft Bedrock في وضع Survival. أعطني الخطوة التالية المنطقية، مع مراعاة أنني لم أرسل صورة للشاشة.") })
         actions.addView(actionButton("خطة جمع الموارد") { askGroq("ضع لي خطة عملية لجمع الخشب والطعام والحجر والحديد في Minecraft Bedrock Survival.") })
         actions.addView(actionButton("مزرعة مناسبة للمبتدئ") { askGroq("اشرح مزرعة طعام بسيطة في Minecraft Bedrock، بالمواد والأبعاد وخطوات البناء.") })
         actions.addView(actionButton("الاستعداد للتختيم") { askGroq("ضع خطة تدريجية لتجهيز نفسي لهزيمة Ender Dragon في Minecraft Bedrock.") })
+        actions.addView(actionButton("كيف أجد قرية؟") { askGroq("اشرح طرق العثور على قرية في Minecraft Bedrock، وما الذي أحتاج معرفته عن البذرة والإحداثيات.") })
         actions.addView(actionButton("تحليل صورة من اللعبة") {
-            showAnswer("ميزة تحليل لقطة الشاشة تحتاج إلى إضافة إذن التقاط الشاشة وربطه بنموذج رؤية. هذه النسخة لا تلتقط الشاشة تلقائياً بعد.")
+            showAnswer("تحليل الشاشة المباشر لم يُفعّل بعد. هذه النسخة لا تلتقط صورة اللعبة تلقائياً.")
         })
 
         answerView = TextView(this).apply {
             text = "اختر مساعدة سريعة. ستظهر إجابة Groq هنا."
             textSize = 13f
             setTextColor(Color.WHITE)
-            setPadding(12, 14, 12, 14)
+            setPadding(dp(12), dp(14), dp(12), dp(14))
             background = GradientDrawable().apply {
                 setColor(Color.rgb(28, 49, 69))
-                cornerRadius = 18f
+                cornerRadius = dp(14).toFloat()
             }
         }
         actions.addView(answerView)
         scroll.addView(actions)
-        root.addView(scroll, LinearLayout.LayoutParams(dp(300), dp(440)))
+        root.addView(scroll, LinearLayout.LayoutParams(dp(292), dp(390)))
 
-        val footer = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        footer.addView(actionButton("تصغير") { root.findViewWithTag<View>("panel_scroll")?.visibility = View.GONE })
-        footer.addView(actionButton("إغلاق") { stopSelf() })
+        val footer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        expandButton = actionButton("تصغير المحتوى") {
+            val hidden = contentScroll?.visibility == View.GONE
+            contentScroll?.visibility = if (hidden) View.VISIBLE else View.GONE
+            expandButton?.text = if (hidden) "تصغير المحتوى" else "تكبير المحتوى"
+            windowManager?.updateViewLayout(root, layoutParams)
+        }
+        footer.addView(expandButton, LinearLayout.LayoutParams(0, dp(48), 1f))
+        footer.addView(actionButton("إغلاق") { stopSelf() }, LinearLayout.LayoutParams(0, dp(48), 1f))
         root.addView(footer)
-        scroll.tag = "panel_scroll"
         return root
     }
 
@@ -148,12 +160,13 @@ class OverlayService : Service() {
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    params.x = startX - (event.rawX - touchX).toInt()
-                    params.y = startY + (event.rawY - touchY).toInt()
-                    windowManager?.updateViewLayout(panel, params)
+                    params.x = (startX - (event.rawX - touchX).toInt()).coerceAtLeast(0)
+                    params.y = (startY + (event.rawY - touchY).toInt()).coerceAtLeast(0)
+                    runCatching { windowManager?.updateViewLayout(panel, params) }
                     true
                 }
-                else -> false
+                MotionEvent.ACTION_UP -> true
+                else -> true
             }
         }
     }
@@ -161,7 +174,7 @@ class OverlayService : Service() {
     private fun askGroq(prompt: String) {
         val key = ApiKeyStore.read(this)
         if (key.isNullOrBlank()) {
-            showAnswer("افتح التطبيق وأدخل مفتاح Groq API ثم احفظه.")
+            showAnswer("افتح التطبيق وأكمل إعداد مفتاح Groq أولاً.")
             return
         }
         showAnswer("جارٍ إرسال طلبك إلى Groq...")
