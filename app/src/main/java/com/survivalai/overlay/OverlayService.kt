@@ -90,20 +90,36 @@ class OverlayService : Service() {
             } else showAnswer("لم يعثر Android على Minecraft Bedrock. تحقق من تثبيت اللعبة.")
         })
 
-        val scroll = ScrollView(this)
-        contentScroll = scroll
-        val actions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        actions.addView(actionButton("أعطني الخطوة التالية") { askGroq("أنا ألعب Minecraft Bedrock في وضع Survival. أعطني الخطوة التالية المنطقية، مع مراعاة أنني لم أرسل صورة للشاشة.") })
-        actions.addView(actionButton("خطة جمع الموارد") { askGroq("ضع لي خطة عملية لجمع الخشب والطعام والحجر والحديد في Minecraft Bedrock Survival.") })
-        actions.addView(actionButton("مزرعة مناسبة للمبتدئ") { askGroq("اشرح مزرعة طعام بسيطة في Minecraft Bedrock، بالمواد والأبعاد وخطوات البناء.") })
-        actions.addView(actionButton("الاستعداد للتختيم") { askGroq("ضع خطة تدريجية لتجهيز نفسي لهزيمة Ender Dragon في Minecraft Bedrock.") })
-        actions.addView(actionButton("كيف أجد قرية؟") { askGroq("اشرح طرق العثور على قرية في Minecraft Bedrock، وما الذي أحتاج معرفته عن البذرة والإحداثيات.") })
-        actions.addView(actionButton("تحليل صورة من اللعبة") {
-            showAnswer("تحليل الشاشة المباشر لم يُفعّل بعد. هذه النسخة لا تلتقط صورة اللعبة تلقائياً.")
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val questionInput = android.widget.EditText(this).apply {
+            hint = "اكتب ما تريد..."
+            setHintTextColor(Color.LTGRAY)
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            minLines = 2
+            maxLines = 4
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(28, 49, 69))
+                cornerRadius = dp(12).toFloat()
+            }
+        }
+        actions.addView(questionInput, LinearLayout.LayoutParams(dp(292), LinearLayout.LayoutParams.WRAP_CONTENT))
+        actions.addView(actionButton("إرسال سؤالي") {
+            val question = questionInput.text?.toString()?.trim().orEmpty()
+            if (question.isBlank()) showAnswer("اكتب سؤالك أولاً.")
+            else askGroq("سؤال اللاعب عن Minecraft Bedrock Survival: $question")
         })
-
+        actions.addView(actionButton("أعطني الخطوة التالية") {
+            askGroq("اعتماداً على سياق المحادثة وبيانات العالم المتاحة، ما الخطوة التالية الأنسب للاعب في Minecraft Bedrock Survival؟ لا تفترض معلومات لم تظهر لك.")
+        })
+        actions.addView(actionButton("تحليل صورة اللعبة") {
+            showAnswer("تحليل الصور قيد التجهيز. في هذه النسخة لا يتم التقاط الشاشة بعد؛ لن أدّعي قراءة الإحداثيات أو Seed دون صورة فعلية.")
+        })
         answerView = TextView(this).apply {
-            text = "اختر مساعدة سريعة. ستظهر إجابة Groq هنا."
+            text = "اكتب ما تريد أو اطلب الخطوة التالية."
             textSize = 13f
             setTextColor(Color.WHITE)
             setPadding(dp(12), dp(14), dp(12), dp(14))
@@ -113,22 +129,8 @@ class OverlayService : Service() {
             }
         }
         actions.addView(answerView)
-        scroll.addView(actions)
-        root.addView(scroll, LinearLayout.LayoutParams(dp(292), dp(390)))
-
-        val footer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-        expandButton = actionButton("تصغير المحتوى") {
-            val hidden = contentScroll?.visibility == View.GONE
-            contentScroll?.visibility = if (hidden) View.VISIBLE else View.GONE
-            expandButton?.text = if (hidden) "تصغير المحتوى" else "تكبير المحتوى"
-            windowManager?.updateViewLayout(root, layoutParams)
-        }
-        footer.addView(expandButton, LinearLayout.LayoutParams(0, dp(48), 1f))
-        footer.addView(actionButton("إغلاق") { stopSelf() }, LinearLayout.LayoutParams(0, dp(48), 1f))
-        root.addView(footer)
+        root.addView(actions)
+        root.addView(actionButton("إغلاق النافذة") { stopSelf() })
         return root
     }
 
