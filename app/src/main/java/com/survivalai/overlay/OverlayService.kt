@@ -16,6 +16,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 class OverlayService : Service() {
@@ -33,10 +34,10 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
         layoutParams = WindowManager.LayoutParams(
-            dp(220), WindowManager.LayoutParams.WRAP_CONTENT, type,
+            dp(232), dp(470), type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.TOP or Gravity.END; x = dp(10); y = dp(110) }
+        ).apply { gravity = Gravity.TOP or Gravity.END; x = dp(10); y = dp(90) }
         panel?.let { windowManager?.addView(it, layoutParams) }
     }
 
@@ -53,42 +54,87 @@ class OverlayService : Service() {
         val header = TextView(this).apply {
             text = "⚔  SURVIVAL AI   ⋮"
             textSize = 14f; setTextColor(Color.WHITE)
-            setPadding(dp(7), dp(5), dp(7), dp(9))
+            setPadding(dp(7), dp(5), dp(7), dp(8))
         }
         root.addView(header); attachDrag(header)
         root.addView(TextView(this).apply {
-            text = "مساعد Minecraft Bedrock"
-            textSize = 11f; setTextColor(Color.rgb(164, 199, 216))
+            text = "مساعد Minecraft Bedrock • أدوات سريعة"
+            textSize = 10f; setTextColor(Color.rgb(164, 199, 216))
             setPadding(dp(7), 0, dp(7), dp(7))
         })
-        root.addView(makeButton("فتح Minecraft  🎮", Color.rgb(29, 130, 77)) {
-            val launch = packageManager.getLaunchIntentForPackage("com.mojang.minecraftpe")
-            if (launch != null) {
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                runCatching { startActivity(launch) }.onFailure { toast("تعذر فتح Minecraft") }
-            } else toast("Minecraft Bedrock غير مثبتة")
+        val scroll = ScrollView(this)
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        actions.addView(section("اللعب"))
+        actions.addView(makeButton("فتح Minecraft  🎮", Color.rgb(29, 130, 77)) { launchMinecraft() })
+        actions.addView(makeButton("فتح المساعد الذكي  ✨", Color.rgb(38, 116, 145)) {
+            openAssistant("حلل وضعي الحالي في Minecraft Bedrock، واسألني عن المعلومات الناقصة قبل تقديم نصيحة.")
         })
-        root.addView(makeButton("تصوير الشاشة  📷", Color.rgb(35, 105, 150)) {
-            val launch = packageManager.getLaunchIntentForPackage(packageName)
-            if (launch != null) {
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                launch.putExtra("com.survivalai.EXTRA_CAPTURE_SCREEN", true)
-                runCatching { startActivity(launch) }.onFailure { toast("تعذر فتح شاشة التصوير") }
-            } else toast("تعذر فتح SurvivalAI")
+        actions.addView(section("مساعدات البقاء"))
+        actions.addView(makeButton("الخطوة التالية المناسبة", Color.rgb(31, 105, 132)) {
+            openAssistant("اقترح لي خطوة واحدة تالية مناسبة في وضع Survival، مع خطوات تنفيذ واضحة.")
         })
-        root.addView(makeButton("إخفاء اللوحة  −", Color.rgb(65, 76, 91)) {
+        actions.addView(makeButton("جمع الموارد والتعدين ⛏", Color.rgb(94, 91, 48)) {
+            openAssistant("ضع لي خطة آمنة لجمع الخشب والحجر والحديد والفحم، وحدد الأدوات والأولويات.")
+        })
+        actions.addView(makeButton("الطعام والزراعة 🍞", Color.rgb(104, 82, 39)) {
+            openAssistant("ساعدني في تأمين الطعام في Minecraft Bedrock، واقترح أسرع طريقة مناسبة لمرحلتي.")
+        })
+        actions.addView(makeButton("القتال والحماية 🛡", Color.rgb(119, 62, 55)) {
+            openAssistant("جهز لي خطة للقتال والحماية حسب مواردي، واذكر ما يجب صنعه قبل المواجهة.")
+        })
+        actions.addView(makeButton("القرى والمعالم 🧭", Color.rgb(72, 83, 122)) {
+            openAssistant("ساعدني في العثور على قرية أو معلم قريب. لا تخترع إحداثيات؛ اطلب Seed وإحداثياتي أو بيانات موثوقة عند الحاجة.")
+        })
+        actions.addView(makeButton("الاستعداد للـ Nether 🔥", Color.rgb(128, 67, 42)) {
+            openAssistant("أعطني قائمة تجهيز ودخول آمن إلى Nether في Bedrock، وفق مواردي الحالية.")
+        })
+        actions.addView(section("أدوات الشاشة"))
+        actions.addView(makeButton("تصوير الشاشة  📷", Color.rgb(35, 105, 150)) { requestCapture() })
+        actions.addView(makeButton("إخفاء اللوحة  −", Color.rgb(65, 76, 91)) {
             panel?.let { runCatching { windowManager?.removeView(it) } }
             panel = null
             stopSelf()
         })
+        scroll.addView(actions)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         return root
+    }
+
+    private fun section(label: String) = TextView(this).apply {
+        text = label; textSize = 11f; setTextColor(Color.rgb(111, 225, 160))
+        setPadding(dp(7), dp(9), dp(7), dp(2))
+    }
+
+    private fun launchMinecraft() {
+        val launch = packageManager.getLaunchIntentForPackage("com.mojang.minecraftpe")
+        if (launch != null) {
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { startActivity(launch) }.onFailure { toast("تعذر فتح Minecraft") }
+        } else toast("Minecraft Bedrock غير مثبتة")
+    }
+
+    private fun openAssistant(question: String) {
+        val launch = packageManager.getLaunchIntentForPackage(packageName)
+        if (launch == null) { toast("تعذر فتح SurvivalAI"); return }
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        launch.putExtra("com.survivalai.EXTRA_QUICK_PROMPT", question)
+        runCatching { startActivity(launch) }.onFailure { toast("تعذر فتح المساعد") }
+    }
+
+    private fun requestCapture() {
+        val launch = packageManager.getLaunchIntentForPackage(packageName)
+        if (launch == null) { toast("تعذر فتح SurvivalAI"); return }
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        launch.putExtra("com.survivalai.EXTRA_CAPTURE_SCREEN", true)
+        runCatching { startActivity(launch) }.onFailure { toast("تعذر فتح شاشة التصوير") }
     }
 
     private fun makeButton(label: String, color: Int, action: () -> Unit) =
         Button(this).apply {
-            text = label; textSize = 12f; isAllCaps = false
+            text = label; textSize = 11f; isAllCaps = false
             setTextColor(Color.WHITE)
             setPadding(dp(4), 0, dp(4), 0)
+            minHeight = dp(42)
             setBackgroundTintList(android.content.res.ColorStateList.valueOf(color))
             setOnClickListener { action() }
         }
@@ -121,7 +167,7 @@ class OverlayService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             manager.createNotificationChannel(NotificationChannel(channelId, "SurvivalAI Overlay", NotificationManager.IMPORTANCE_LOW))
         val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            Notification.Builder(this, channelId).setContentTitle("SurvivalAI يعمل").setContentText("لوحة المساعد العائمة جاهزة").setSmallIcon(android.R.drawable.ic_dialog_info).build()
+            Notification.Builder(this, channelId).setContentTitle("SurvivalAI يعمل").setContentText("أدوات المساعد العائم جاهزة").setSmallIcon(android.R.drawable.ic_dialog_info).build()
         else @Suppress("DEPRECATION") Notification.Builder(this).setContentTitle("SurvivalAI يعمل").setSmallIcon(android.R.drawable.ic_dialog_info).build()
         startForeground(41, notification)
     }
