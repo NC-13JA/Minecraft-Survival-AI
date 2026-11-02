@@ -148,10 +148,37 @@ private fun SurvivalApp() {
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xCC16334B)), shape = RoundedCornerShape(24.dp)) {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("ابدأ المغامرة", style = MaterialTheme.typography.titleLarge, color = Color.White)
-                            Text("افتح اللعبة ثم شغّل المساعد العائم فوقها.", color = Color(0xFFC4D8E8))
-                            Button(onClick = { launchMinecraft() }, modifier = Modifier.fillMaxWidth(),
+                            Text("أدخل Seed عالمك واحفظه قبل فتح Minecraft.", color = Color(0xFFC4D8E8))
+                            OutlinedTextField(
+                                value = worldSeed,
+                                onValueChange = { worldSeed = it },
+                                label = { Text("World Seed") },
+                                placeholder = { Text("أدخل Seed العالم هنا") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            OutlinedButton(onClick = {
+                                saveWorldProfile()
+                                val seedToCopy = worldSeed.trim()
+                                if (seedToCopy.isNotEmpty()) {
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Minecraft World Seed", seedToCopy))
+                                    status = "حُفظ Seed ونُسخ. الصقه في Chunkbase."
+                                } else {
+                                    status = "لم تدخل Seed؛ فُتحت Chunkbase لإدخاله هناك."
+                                }
+                                runCatching {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.chunkbase.com/apps/seed-map")))
+                                }.onFailure { status = "تعذر فتح صفحة Chunkbase: ${it.message}" }
+                            }, modifier = Modifier.fillMaxWidth()) {
+                                Text("تحليل Seed على Chunkbase")
+                            }
+                            Button(onClick = {
+                                saveWorldProfile()
+                                launchMinecraft()
+                            }, modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18B94D))) {
-                                Text("العب الآن 🎮", fontWeight = FontWeight.Bold)
+                                Text("حفظ Seed وفتح Minecraft 🎮", fontWeight = FontWeight.Bold)
                             }
                             OutlinedButton(
                                 onClick = {
@@ -194,27 +221,7 @@ private fun SurvivalApp() {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("ملف عالمك وذاكرة النجاة", style = MaterialTheme.typography.titleMedium, color = Color.White)
                             Text("تُحفظ هذه البيانات محلياً وتُرفق تلقائياً بأسئلتك.", color = Color(0xFFB7D4E8))
-                            OutlinedTextField(value = worldSeed, onValueChange = { worldSeed = it }, label = { Text("World Seed (إدخال يدوي)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                            OutlinedButton(onClick = {
-                                val seedToCopy = worldSeed.trim()
-                                if (seedToCopy.isNotEmpty()) {
-                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Minecraft World Seed", seedToCopy))
-                                    status = "نُسخ Seed. الصقه في خانة Seed داخل Chunkbase."
-                                } else {
-                                    status = "أدخل Seed واحفظه أولاً، أو أدخله مباشرة في Chunkbase."
-                                }
-                                runCatching {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.chunkbase.com/apps/seed-map")))
-                                }.onFailure { status = "تعذر فتح صفحة Chunkbase: ${it.message}" }
-                            }, modifier = Modifier.fillMaxWidth()) {
-                                Text("فتح خريطة العالم في Chunkbase")
-                            }
-                            Text(
-                                "تُفتح الخريطة في المتصفح ويُنسخ Seed تلقائياً إن كان محفوظاً. اختر Bedrock والإصدار الذي وُلّدت به المنطقة؛ نتائج الموقع لا تُقرأ تلقائياً داخل التطبيق حالياً.",
-                                color = Color(0xFFB7D4E8),
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                            Text("Seed محفوظ محلياً ويُرفق تلقائياً بطلبات المساعد.", color = Color(0xFFB7D4E8), style = MaterialTheme.typography.bodySmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(value = worldX, onValueChange = { worldX = it }, label = { Text("X") }, modifier = Modifier.weight(1f), singleLine = true)
                                 OutlinedTextField(value = worldY, onValueChange = { worldY = it }, label = { Text("Y") }, modifier = Modifier.weight(1f), singleLine = true)
