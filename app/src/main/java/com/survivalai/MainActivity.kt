@@ -3,6 +3,9 @@ package com.survivalai
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.media.projection.MediaProjectionManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -38,6 +41,19 @@ class MainActivity : ComponentActivity() {
 private fun SurvivalApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val captureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
+            val captureIntent = Intent(context, com.survivalai.capture.ScreenCaptureService::class.java).apply {
+                putExtra(com.survivalai.capture.ScreenCaptureService.EXTRA_RESULT_CODE, result.resultCode)
+                putExtra(com.survivalai.capture.ScreenCaptureService.EXTRA_RESULT_DATA, result.data)
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) context.startForegroundService(captureIntent)
+            else context.startService(captureIntent)
+            status = "تم منح إذن الشاشة؛ يجري التقاط صورة واحدة."
+        } else {
+            status = "أُلغي إذن التقاط الشاشة."
+        }
+    }
     var hasKey by remember { mutableStateOf(!ApiKeyStore.read(context).isNullOrBlank()) }
     var setupKey by remember { mutableStateOf("") }
     var changeKey by remember { mutableStateOf("") }
@@ -184,6 +200,12 @@ private fun SurvivalApp() {
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF18B94D))) {
                                 Text("حفظ Seed وفتح Minecraft 🎮", fontWeight = FontWeight.Bold)
                             }
+                            OutlinedButton(
+                                onClick = {
+                                    val manager = context.getSystemService(android.content.Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                                    captureLauncher.launch(manager.createScreenCaptureIntent())
+                                }, modifier = Modifier.fillMaxWidth()
+                            ) { Text("التقاط صورة من شاشة Minecraft") }
                             OutlinedButton(
                                 onClick = {
                                     if (Settings.canDrawOverlays(context)) {
