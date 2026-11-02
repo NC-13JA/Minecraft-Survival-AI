@@ -4,10 +4,13 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <application
         android:allowBackup="false"
-        android:label="SurvivalAI"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:icon="@drawable/ic_launcher_survival"
+        android:roundIcon="@drawable/ic_launcher_survival"
+        android:label="Minecraft Survival AI"
+        android:theme="@style/Theme.SurvivalAI.Starting"
         android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"
