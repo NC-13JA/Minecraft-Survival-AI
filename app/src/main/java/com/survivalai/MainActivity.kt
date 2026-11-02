@@ -76,6 +76,10 @@ private fun SurvivalApp() {
 
     LaunchedEffect(Unit) {
         val activity = context as? ComponentActivity
+        activity?.intent?.getStringExtra("com.survivalai.EXTRA_QUICK_PROMPT")?.let { quickQuestion ->
+            prompt = quickQuestion
+            activity.intent.removeExtra("com.survivalai.EXTRA_QUICK_PROMPT")
+        }
         if (activity?.intent?.getBooleanExtra("com.survivalai.EXTRA_CAPTURE_SCREEN", false) == true) {
             activity.intent.removeExtra("com.survivalai.EXTRA_CAPTURE_SCREEN")
             val manager = context.getSystemService(android.content.Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
