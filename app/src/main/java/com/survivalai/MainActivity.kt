@@ -31,15 +31,21 @@ import com.survivalai.security.ApiKeyStore
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private var commandIntent by mutableStateOf<Intent?>(null)
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.Theme_SurvivalAI)
         super.onCreate(savedInstanceState)
-        setContent { SurvivalApp() }
+        commandIntent = intent
+        setContent { SurvivalApp(commandIntent = commandIntent, onCommandHandled = { commandIntent = null }) }
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        commandIntent = intent
     }
 }
-
 @Composable
-private fun SurvivalApp() {
+private fun SurvivalApp(commandIntent: Intent?, onCommandHandled: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf("جاهز للمغامرة") }
@@ -76,36 +82,6 @@ private fun SurvivalApp() {
     var dataSaver by remember { mutableStateOf(worldPrefs.getBoolean("data_saver", true)) }
     var explorationRadius by remember { mutableIntStateOf(worldPrefs.getInt("exploration_radius", 500).coerceIn(500, 2000)) }
 
-    LaunchedEffect(Unit) {
-        val activity = context as? ComponentActivity
-        activity?.intent?.getStringExtra("com.survivalai.EXTRA_QUICK_PROMPT")?.let { quickQuestion ->
-            prompt = quickQuestion
-            activity.intent.removeExtra("com.survivalai.EXTRA_QUICK_PROMPT")
-        }
-        if (activity?.intent?.getBooleanExtra("com.survivalai.EXTRA_CAPTURE_SCREEN", false) == true) {
-            activity.intent.removeExtra("com.survivalai.EXTRA_CAPTURE_SCREEN")
-            val manager = context.getSystemService(android.content.Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            captureLauncher.launch(manager.createScreenCaptureIntent())
-        }
-        activity?.intent?.getStringExtra("com.survivalai.EXTRA_ANALYZE_SCREEN")?.let { imagePath ->
-            activity.intent.removeExtra("com.survivalai.EXTRA_ANALYZE_SCREEN")
-            val imageFile = File(imagePath)
-            if (ApiKeyStore.read(context).isNullOrBlank()) {
-                status = "أدخل مفتاح Groq أولاً ثم أعد تحليل الشاشة."
-            } else {
-                busy = true
-                status = "يجري تحليل لقطة Minecraft باستخدام نموذج الرؤية..."
-                scope.launch {
-                    val worldSummary = "Seed: " + worldSeed.ifBlank { "غير معروف" } + "؛ الإحداثيات: X=" + worldX.ifBlank { "؟" } + ", Y=" + worldY.ifBlank { "؟" } + ", Z=" + worldZ.ifBlank { "؟" } + "؛ الهدف: " + goalText
-                    val result = GroqClient.analyzeScreenshot(ApiKeyStore.read(context).orEmpty(), imageFile, worldSummary)
-                    answer = result.getOrElse { "فشل تحليل الصورة: " + (it.message ?: "خطأ غير معروف") }
-                    status = if (result.isSuccess) "اكتمل تحليل لقطة الشاشة." else "تعذر تحليل لقطة الشاشة."
-                    busy = false
-                }
-            }
-        }
-    }
-
     fun worldContext(): String = """
         بيانات عالم اللاعب:
         Seed: ${worldSeed.ifBlank { "غير معروف" }}
@@ -118,6 +94,53 @@ private fun SurvivalApp() {
         وضع توفير البيانات: ${if (dataSaver) "مفعّل" else "متوقف"}.
         لا تفترض أن Seed أو الإحداثيات صحيحة إن لم يقدمها اللاعب، ولا تخترع أي موقع.
     """.trimIndent()
+
+    fun sendQuestion(question: String) {
+        if (busy) return
+        val key = ApiKeyStore.read(context).orEmpty()
+        if (key.isBlank()) { status = "أدخل مفتاح Groq API أولاً."; return }
+        busy = true
+        status = "جارٍ إرسال السؤال إلى المساعد..."
+        scope.launch {
+            try {
+                val result = GroqClient.ask(key, model.trim(), worldContext() + "\n\n" + question)
+                answer = result.getOrElse { "تعذر الاتصال: ${it.message ?: "خطأ غير معروف"}" }
+                status = if (result.isSuccess) "وصل رد المساعد." else "فشل طلب المساعد."
+            } finally { busy = false }
+        }
+    }
+
+    LaunchedEffect(commandIntent) {
+        val command = commandIntent ?: return@LaunchedEffect
+        command.getStringExtra("com.survivalai.EXTRA_QUICK_PROMPT")?.let { quickQuestion ->
+            prompt = quickQuestion
+            sendQuestion(quickQuestion)
+        }
+        if (command.getBooleanExtra("com.survivalai.EXTRA_CAPTURE_SCREEN", false)) {
+            val manager = context.getSystemService(android.content.Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            status = "وافق على إذن التقاط الشاشة للمتابعة."
+            captureLauncher.launch(manager.createScreenCaptureIntent())
+        }
+        command.getStringExtra("com.survivalai.EXTRA_ANALYZE_SCREEN")?.let { imagePath ->
+            val imageFile = File(imagePath)
+            val key = ApiKeyStore.read(context).orEmpty()
+            if (key.isBlank()) status = "أدخل مفتاح Groq أولاً ثم أعد تحليل الشاشة."
+            else if (!imageFile.exists() || imageFile.length() == 0L) status = "لم يتم العثور على ملف لقطة الشاشة."
+            else {
+                busy = true
+                status = "يجري تحليل لقطة Minecraft..."
+                scope.launch {
+                    try {
+                        val worldSummary = "Seed: " + worldSeed.ifBlank { "غير معروف" } + "؛ الإحداثيات: X=" + worldX.ifBlank { "؟" } + ", Y=" + worldY.ifBlank { "؟" } + ", Z=" + worldZ.ifBlank { "؟" } + "؛ الهدف: " + goalText
+                        val result = GroqClient.analyzeScreenshot(key, imageFile, worldSummary)
+                        answer = result.getOrElse { "فشل تحليل الصورة: " + (it.message ?: "خطأ غير معروف") }
+                        status = if (result.isSuccess) "اكتمل تحليل لقطة الشاشة." else "تعذر تحليل لقطة الشاشة."
+                    } finally { busy = false }
+                }
+            }
+        }
+        onCommandHandled()
+    }
 
     fun saveWorldProfile() {
         worldPrefs.edit()
