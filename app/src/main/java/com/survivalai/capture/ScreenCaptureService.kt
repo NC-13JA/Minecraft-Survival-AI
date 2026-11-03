@@ -89,7 +89,13 @@ class ScreenCaptureService : Service() {
                 val output = File(cacheDir, "minecraft_screen_latest.jpg")
                 FileOutputStream(output).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }
                 bitmap.recycle()
-                updateNotification("تم حفظ لقطة الشاشة داخل التطبيق")
+                updateNotification("تم التقاط الشاشة؛ جارٍ إرسالها للمساعد")
+                val analyze = packageManager.getLaunchIntentForPackage(packageName)
+                if (analyze != null) {
+                    analyze.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    analyze.putExtra("com.survivalai.EXTRA_ANALYZE_SCREEN", output.absolutePath)
+                    runCatching { startActivity(analyze) }
+                }
             } catch (error: Exception) {
                 updateNotification("تعذر حفظ لقطة الشاشة: ${error.message ?: "خطأ"}")
             } finally {
@@ -98,15 +104,19 @@ class ScreenCaptureService : Service() {
             }
         }, handler)
 
-        virtualDisplay = projection?.createVirtualDisplay(
-            "SurvivalAI-Screen", width, height, density,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            imageReader?.surface, null, handler
-        )
+        handler.postDelayed({
+            if (imageReader != null) {
+                virtualDisplay = projection?.createVirtualDisplay(
+                    "SurvivalAI-Screen", width, height, density,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    imageReader?.surface, null, handler
+                )
+            }
+        }, 900)
         handler.postDelayed({ if (imageReader != null) {
             updateNotification("لم تصل صورة الشاشة؛ أوقف الالتقاط.")
             stopCapture()
-        } }, 5000)
+        } }, 7000)
     }
 
     private fun buildNotification(message: String): Notification {
