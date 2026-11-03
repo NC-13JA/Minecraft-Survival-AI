@@ -2,6 +2,7 @@ package com.survivalai
 
 import android.content.Intent
 import android.net.Uri
+import java.io.File
 import android.os.Bundle
 import android.media.projection.MediaProjectionManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -50,7 +51,8 @@ private fun SurvivalApp() {
             }
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) context.startForegroundService(captureIntent)
             else context.startService(captureIntent)
-            status = "تم منح إذن الشاشة؛ يجري التقاط صورة واحدة."
+            status = "تم منح إذن الشاشة؛ ارجع إلى Minecraft لالتقاطها."
+            (context as? android.app.Activity)?.moveTaskToBack(true)
         } else {
             status = "أُلغي إذن التقاط الشاشة."
         }
@@ -84,6 +86,23 @@ private fun SurvivalApp() {
             activity.intent.removeExtra("com.survivalai.EXTRA_CAPTURE_SCREEN")
             val manager = context.getSystemService(android.content.Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             captureLauncher.launch(manager.createScreenCaptureIntent())
+        }
+        activity?.intent?.getStringExtra("com.survivalai.EXTRA_ANALYZE_SCREEN")?.let { imagePath ->
+            activity.intent.removeExtra("com.survivalai.EXTRA_ANALYZE_SCREEN")
+            val imageFile = File(imagePath)
+            if (ApiKeyStore.read(context).isNullOrBlank()) {
+                status = "أدخل مفتاح Groq أولاً ثم أعد تحليل الشاشة."
+            } else {
+                busy = true
+                status = "يجري تحليل لقطة Minecraft باستخدام نموذج الرؤية..."
+                scope.launch {
+                    val worldSummary = "Seed: " + worldSeed.ifBlank { "غير معروف" } + "؛ الإحداثيات: X=" + worldX.ifBlank { "؟" } + ", Y=" + worldY.ifBlank { "؟" } + ", Z=" + worldZ.ifBlank { "؟" } + "؛ الهدف: " + goalText
+                    val result = GroqClient.analyzeScreenshot(ApiKeyStore.read(context).orEmpty(), imageFile, worldSummary)
+                    answer = result.getOrElse { "فشل تحليل الصورة: " + (it.message ?: "خطأ غير معروف") }
+                    status = if (result.isSuccess) "اكتمل تحليل لقطة الشاشة." else "تعذر تحليل لقطة الشاشة."
+                    busy = false
+                }
+            }
         }
     }
 
