@@ -58,8 +58,20 @@ class OverlayService : Service() {
             elevation=dp(12).toFloat(); alpha=panelAlpha/100f
         }
         if (minimized) {
-            val icon = TextView(this).apply { text="⚔"; textSize=27f; gravity=Gravity.CENTER; setTextColor(Color.WHITE); setOnClickListener { minimized=false; rebuildPanel() } }
-            root.addView(icon, LinearLayout.LayoutParams(-1,-1)); attachDrag(icon)
+            val icon = TextView(this).apply {
+                text = "⚔"
+                textSize = 27f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                contentDescription = "إعادة فتح نافذة Survival AI"
+                // Keep the icon tap available to its click listener.
+                // attachDrag consumes ACTION_UP and suppresses performClick.
+                setOnClickListener {
+                    minimized = false
+                    rebuildPanel()
+                }
+            }
+            root.addView(icon, LinearLayout.LayoutParams(-1, -1))
             return root
         }
         val header = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
