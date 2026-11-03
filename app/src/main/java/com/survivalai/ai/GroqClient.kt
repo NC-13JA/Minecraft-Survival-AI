@@ -31,6 +31,6 @@ object GroqClient {
     }}
     private fun execute(apiKey:String,payload:JSONObject):String {
         val request=Request.Builder().url("https://api.groq.com/openai/v1/chat/completions").header("Authorization","Bearer $apiKey").header("Content-Type","application/json").post(payload.toString().toRequestBody("application/json".toMediaType())).build()
-        http.newCall(request).execute().use{response->val body=response.body?.string().orEmpty();if(!response.isSuccessful){val message=runCatching{JSONObject(body).optJSONObject("error")?.optString("message")}.getOrNull();error(message?.takeIf{it.isNotBlank()}?:"Groq HTTP ${response.code}")};JSONObject(body).getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content").ifBlank{"لم يصل رد نصي من النموذج."}}
+        return http.newCall(request).execute().use{response->val body=response.body?.string().orEmpty();if(!response.isSuccessful){val message=runCatching{JSONObject(body).optJSONObject("error")?.optString("message")}.getOrNull();error(message?.takeIf{it.isNotBlank()}?:"Groq HTTP ${response.code}")};JSONObject(body).getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content").ifBlank{"لم يصل رد نصي من النموذج."}}
     }
 }
