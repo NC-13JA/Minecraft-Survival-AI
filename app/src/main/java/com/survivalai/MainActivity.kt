@@ -105,7 +105,7 @@ private fun MiniMapApp() {
 
 @Composable
 private fun MapControl(label: String, onClick: () -> Unit) {
-    Surface(Modifier.size(44.dp), color = Color(0xE6192922), shape = CircleShape, onClick = onClick) {
+    Surface(onClick = onClick, modifier = Modifier.size(44.dp), color = Color(0xE6192922), shape = CircleShape) {
         Box(contentAlignment = Alignment.Center) {
             Text(label, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
