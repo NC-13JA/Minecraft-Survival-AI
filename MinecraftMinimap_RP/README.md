@@ -12,3 +12,5 @@ The icons are original pixel-art assets designed for this add-on, using Minecraf
 References:
 - https://github.com/Mojang/bedrock-samples
 - https://wiki.bedrock.dev/text/custom-emojis
+
+The custom glyph atlas is used by the Behavior Pack to draw tiny creature and ore pictures in the in-game action bar. Enable both packs (the BP manifest declares the RP dependency).
