@@ -1,0 +1,46 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Survival AI - Live Minimap",
+    "description": "Live in-game minimap generated from loaded Bedrock world blocks.",
+    "uuid": "7e1e4f5b-0a42-4f13-9f77-5d2d11b2a601",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      26,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "0f6c1b87-0c20-4e2c-b8b8-f8f2d6c7a101",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "entry": "scripts/minimap.js",
+      "uuid": "a1b5a0d8-3c7f-4d9a-ae2c-6f6a2b8c3102",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.10.0"
+    }
+  ]
+}
