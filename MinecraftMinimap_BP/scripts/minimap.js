@@ -1,20 +1,23 @@
 import { world, system } from "@minecraft/server";
 
-const MAP_RADIUS = 5;             // 11 x 11 terrain cells
-const UPDATE_TICKS = 20;          // once per second
-const RESOURCE_SCAN_TICKS = 60;   // heavier underground scan every 3 seconds
-const PIXEL = "·";
+const MAP_RADIUS = 5;
+const UPDATE_TICKS = 20;
+const RESOURCE_SCAN_TICKS = 60;
+const ICON_BASE = 0xE200;
 let tick = 0;
 const resourceCache = new Map();
+
+function icon(index) {
+  return String.fromCharCode(ICON_BASE + index);
+}
 
 function terrainStyle(block) {
   if (!block) return ["§8", "·"];
   const id = block.typeId.toLowerCase();
-
   if (id.includes("water")) return ["§9", "≈"];
   if (id.includes("lava") || id.includes("magma")) return ["§6", "♨"];
   if (id.includes("ice")) return ["§b", "❄"];
-  if (id.includes("sand") || id.includes("sandstone")) return ["§e", "░"];
+  if (id.includes("sand")) return ["§e", "░"];
   if (id.includes("snow")) return ["§f", "✳"];
   if (id.includes("leaves") || id.includes("azalea") || id.includes("moss")) return ["§a", "♣"];
   if (id.includes("log") || id.includes("wood") || id.includes("planks")) return ["§6", "▥"];
@@ -26,34 +29,45 @@ function terrainStyle(block) {
   return ["§7", "▫"];
 }
 
-function entitySymbol(entity) {
+function entityIcon(entity) {
   const id = (entity.typeId || "").toLowerCase();
-  if (id.includes("player")) return ["§b", "P"];
-  if (id.includes("villager")) return ["§e", "V"];
-  if (id.includes("item")) return ["§f", "*"];
-  if (id.includes("creeper")) return ["§a", "C"];
-  if (id.includes("zombie") || id.includes("skeleton") || id.includes("spider") ||
-      id.includes("witch") || id.includes("slime") || id.includes("phantom") ||
-      id.includes("enderman") || id.includes("pillager") || id.includes("drowned") ||
-      id.includes("husk") || id.includes("stray")) return ["§c", "!"];
-  if (id.includes("cow") || id.includes("pig") || id.includes("sheep") ||
-      id.includes("chicken") || id.includes("horse") || id.includes("cat") ||
-      id.includes("wolf") || id.includes("rabbit") || id.includes("fox") ||
-      id.includes("bee") || id.includes("goat") || id.includes("turtle")) return ["§a", "a"];
-  return ["§d", "?"];
+  if (id.includes("player")) return icon(0);
+  if (id.includes("villager")) return icon(1);
+  if (id.includes("creeper")) return icon(2);
+  if (id.includes("zombie") || id.includes("husk") || id.includes("drowned")) return icon(3);
+  if (id.includes("skeleton") || id.includes("stray") || id.includes("bogged")) return icon(4);
+  if (id.includes("spider") || id.includes("cave_spider")) return icon(5);
+  if (id.includes("cow")) return icon(6);
+  if (id.includes("pig")) return icon(7);
+  if (id.includes("sheep")) return icon(8);
+  if (id.includes("chicken")) return icon(9);
+  if (id.includes("horse") || id.includes("donkey") || id.includes("mule")) return icon(10);
+  if (id.includes("wolf")) return icon(11);
+  if (id.includes("enderman")) return icon(12);
+  if (id.includes("witch")) return icon(13);
+  if (id.includes("slime") || id.includes("magma_cube")) return icon(14);
+  if (id.includes("bee")) return icon(15);
+  if (id.includes("iron_golem")) return icon(16);
+  if (id.includes("rabbit")) return icon(17);
+  if (id.includes("fox")) return icon(18);
+  if (id.includes("phantom") || id.includes("pillager") || id.includes("guardian") ||
+      id.includes("blaze") || id.includes("ghast") || id.includes("vindicator") ||
+      id.includes("evoker") || id.includes("ravager") || id.includes("warden")) return icon(19);
+  if (id.includes("item")) return "§f*";
+  return icon(19);
 }
 
-function resourceName(id) {
-  if (id.includes("ancient_debris")) return "Ancient Debris";
-  if (id.includes("diamond")) return "Diamond";
-  if (id.includes("emerald")) return "Emerald";
-  if (id.includes("gold")) return "Gold";
-  if (id.includes("iron")) return "Iron";
-  if (id.includes("copper")) return "Copper";
-  if (id.includes("redstone")) return "Redstone";
-  if (id.includes("lapis")) return "Lapis";
-  if (id.includes("coal")) return "Coal";
-  if (id.includes("quartz")) return "Quartz";
+function resourceInfo(id) {
+  if (id.includes("ancient_debris")) return { name: "Debris", glyph: 28 };
+  if (id.includes("diamond")) return { name: "Diamond", glyph: 20 };
+  if (id.includes("emerald")) return { name: "Emerald", glyph: 23 };
+  if (id.includes("gold")) return { name: "Gold", glyph: 22 };
+  if (id.includes("iron")) return { name: "Iron", glyph: 21 };
+  if (id.includes("copper")) return { name: "Copper", glyph: 24 };
+  if (id.includes("redstone")) return { name: "Redstone", glyph: 26 };
+  if (id.includes("lapis")) return { name: "Lapis", glyph: 27 };
+  if (id.includes("coal")) return { name: "Coal", glyph: 25 };
+  if (id.includes("quartz")) return { name: "Quartz", glyph: 29 };
   return undefined;
 }
 
@@ -62,19 +76,17 @@ function scanResources(player) {
   const p = player.location;
   const dim = player.dimension;
   const bx = Math.floor(p.x), by = Math.floor(p.y), bz = Math.floor(p.z);
-
-  // A compact 9x9x9 scan around the player; never loads distant chunks.
   for (let x = -4; x <= 4; x++) {
     for (let z = -4; z <= 4; z++) {
       for (let y = -5; y <= 3; y++) {
         try {
           const block = dim.getBlock({ x: bx + x, y: by + y, z: bz + z });
           if (!block) continue;
-          const name = resourceName(block.typeId.toLowerCase());
-          if (!name) continue;
+          const info = resourceInfo(block.typeId.toLowerCase());
+          if (!info) continue;
           const distance = Math.round(Math.sqrt(x * x + y * y + z * z));
-          const old = found.get(name);
-          if (!old || distance < old.distance) found.set(name, { distance, x, y, z });
+          const old = found.get(info.name);
+          if (!old || distance < old.distance) found.set(info.name, { ...info, distance });
         } catch {}
       }
     }
@@ -96,8 +108,7 @@ function renderMap(player) {
       const dz = Math.round(entity.location.z - cz);
       if (Math.abs(dx) > MAP_RADIUS || Math.abs(dz) > MAP_RADIUS) continue;
       const key = dx + "," + dz;
-      // Keep the first nearby entity in a cell to avoid unreadable overlap.
-      if (!entityCells.has(key)) entityCells.set(key, entitySymbol(entity));
+      if (!entityCells.has(key)) entityCells.set(key, entityIcon(entity));
     }
 
     const rows = [];
@@ -110,12 +121,11 @@ function renderMap(player) {
         }
         const marker = entityCells.get(dx + "," + dz);
         if (marker) {
-          row += marker[0] + marker[1] + "§r";
+          row += marker + "§r";
           continue;
         }
         try {
-          const top = dim.getTopmostBlock({ x: cx + dx, z: cz + dz });
-          const style = terrainStyle(top);
+          const style = terrainStyle(dim.getTopmostBlock({ x: cx + dx, z: cz + dz }));
           row += style[0] + style[1] + "§r";
         } catch {
           row += "§8·§r";
@@ -124,27 +134,26 @@ function renderMap(player) {
       rows.push(row);
     }
 
-    const dimensionName = dim.id.replace("minecraft:", "").toUpperCase();
     const resources = resourceCache.get(player.id) || new Map();
-    const priority = ["Diamond", "Ancient Debris", "Emerald", "Gold", "Iron", "Copper", "Redstone", "Lapis", "Coal", "Quartz"];
+    const priority = ["Diamond", "Debris", "Emerald", "Gold", "Iron", "Copper", "Redstone", "Lapis", "Coal", "Quartz"];
     const resourceText = [];
     for (const name of priority) {
       const item = resources.get(name);
-      if (item) resourceText.push(name + " " + item.distance + "m");
+      if (item) resourceText.push(icon(item.glyph) + " §f" + name + " §7" + item.distance + "m");
       if (resourceText.length >= 3) break;
     }
     const resourceLine = resourceText.length
-      ? "§6ORES §r" + resourceText.join("  §7|  §r")
+      ? "§6ORES §r" + resourceText.join("  §8|  §r")
       : "§7ORES: none detected nearby";
     const entityCount = Math.max(0, entities.length - 1);
+    const dimensionName = dim.id.replace("minecraft:", "").toUpperCase();
     const header = "§l§bSURVIVAL MAP§r  §7N ↑  " + dimensionName;
-    const legend = "§7◆ You  §c! Hostile  §aAnimals  §eV Villager  §bP Player";
-    const footer = "§7X " + cx + "  Z " + cz + "  §fMobs: " + entityCount;
+    const footer = "§7X " + cx + "  Z " + cz + "  §fNearby: " + entityCount;
     player.onScreenDisplay.setActionBar(
-      header + "\n" + rows.join("\n") + "\n" + legend + "\n" + resourceLine + "\n" + footer
+      header + "\n" + rows.join("\n") + "\n" + resourceLine + "\n" + footer
     );
   } catch {
-    // Player may be unavailable while changing dimensions or leaving.
+    // The player may be unavailable while changing dimensions or leaving.
   }
 }
 

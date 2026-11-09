@@ -1,12 +1,12 @@
 {
   "format_version": 2,
   "header": {
-    "name": "Survival AI - Enhanced Live Minimap",
-    "description": "Terrain symbols, nearby entity markers and local ore detection.",
+    "name": "Survival AI - Live Minimap",
+    "description": "Live terrain map with illustrated creature and ore icons.",
     "uuid": "7e1e4f5b-0a42-4f13-9f77-5d2d11b2a601",
     "version": [
       1,
-      1,
+      2,
       0
     ],
     "min_engine_version": [
@@ -21,7 +21,7 @@
       "uuid": "0f6c1b87-0c20-4e2c-b8b8-f8f2d6c7a101",
       "version": [
         1,
-        1,
+        2,
         0
       ]
     },
@@ -32,7 +32,7 @@
       "uuid": "a1b5a0d8-3c7f-4d9a-ae2c-6f6a2b8c3102",
       "version": [
         1,
-        1,
+        2,
         0
       ]
     }
@@ -41,6 +41,14 @@
     {
       "module_name": "@minecraft/server",
       "version": "2.11.0"
+    },
+    {
+      "uuid": "a6d9c2f4-1b7e-4d2a-9c51-6f0b8e3d7214",
+      "version": [
+        1,
+        2,
+        0
+      ]
     }
   ]
 }

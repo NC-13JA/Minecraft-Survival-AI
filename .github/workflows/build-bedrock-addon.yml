@@ -6,6 +6,7 @@ on:
       - feature/bedrock-minimap-addon
     paths:
       - "MinecraftMinimap_BP/**"
+      - "MinecraftMinimap_RP/**"
       - ".github/workflows/build-bedrock-addon.yml"
   workflow_dispatch:
 
@@ -16,14 +17,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate JSON
-        run: python3 -m json.tool MinecraftMinimap_BP/manifest.json > /dev/null
+      - name: Validate pack manifests and glyph atlas
+        run: |
+          python3 -m json.tool MinecraftMinimap_BP/manifest.json > /dev/null
+          python3 -m json.tool MinecraftMinimap_RP/manifest.json > /dev/null
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          p = Path("MinecraftMinimap_RP/font/glyph_E2.png")
+          data = p.read_bytes()
+          assert data[:8] == b"\x89PNG\r\n\x1a\n", "glyph atlas is not a PNG"
+          w, h = struct.unpack(">II", data[16:24])
+          assert (w, h) == (256, 256), f"unexpected glyph atlas size: {w}x{h}"
+          print(f"Validated glyph atlas: {w}x{h}")
+          PY
 
       - name: Package mcaddon
         run: |
           mkdir -p dist
-          cd MinecraftMinimap_BP
-          zip -r ../dist/SurvivalAI-Live-Minimap.mcaddon .
+          zip -r dist/SurvivalAI-Live-Minimap.mcaddon MinecraftMinimap_BP MinecraftMinimap_RP
 
       - name: Upload add-on
         uses: actions/upload-artifact@v4

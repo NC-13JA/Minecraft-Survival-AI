@@ -1,22 +1,18 @@
-# Survival AI — Enhanced Live Minimap Add-on
+# Survival AI Live Minimap — 1.2.0
 
-Target: Minecraft Bedrock 1.26.60.x, using stable `@minecraft/server` 2.11.0.
+Minecraft Bedrock 1.26.60.x. Requires the matching Resource Pack; the Behavior Pack manifest links it automatically.
 
-## Current features
-- 11×11 top-down surface map with distinct terrain symbols for water, lava, ice, sand, snow, trees, plants, dirt and stone.
-- Red diamond marks the player; north stays at the top.
-- Nearby entities are overlaid on the map: hostile mobs (!), animals (a), villagers (V), dropped items (*) and other entities (?).
-- Nearby ores/resources are scanned in a compact 9×9×9 volume around the player. The nearest detected types and approximate block distance are listed (diamond, ancient debris, emerald, gold, iron, copper, redstone, lapis, coal and quartz).
-- Coordinates, dimension and nearby entity count are shown.
-- Surface map refreshes every second; resource scan refreshes every three seconds.
+## Visual icon update
+The companion Resource Pack includes a 256×256 Bedrock custom glyph atlas at `font/glyph_E2.png`. It contains 30 original pixel-art icons for nearby players, villagers, hostile mobs, animals, and ores. The script uses those glyphs in the Action Bar so entities and detected resources appear as pictures rather than single-letter abbreviations.
 
-## Important detection limits
-- The map samples the topmost surface block at each X/Z position; it is not a cave map.
-- Resource detection only checks blocks in the loaded area within the scan volume. It does not reveal unexplored or unloaded chunks, and it cannot identify every possible item or structure in the world.
-- Entity markers show entities returned by the nearby-dimension query; they are not a global radar.
-- This version still uses Minecraft's action-bar HUD location. A true draggable, resizable top-right minimap requires a custom Resource Pack HUD screen and a tested way to feed live script data into that UI. This build does not claim that corner-widget interaction is implemented yet.
+## Included detections
+- Nearby entities within 16 blocks, grouped by map cell.
+- Creatures: player, villager, creeper, zombie, skeleton, spider, cow, pig, sheep, chicken, horse, wolf, enderman, witch, slime, bee, iron golem, rabbit, fox and a general hostile icon.
+- Nearby ore scan in a 9×9×9 volume around the player: diamond, iron, gold, emerald, copper, coal, redstone, lapis, quartz and ancient debris.
+- Surface terrain preview, north-up, coordinates and dimension.
+
+## Detection limits
+This is a local minimap overlay in the Action Bar, not a global radar. It only reports entities returned by the nearby query and ores found in loaded blocks in the scan volume. It does not reveal unloaded chunks or all resources underground. A separate corner-positioned draggable HUD is a later UI task.
 
 ## Install
-1. Import the generated `.mcaddon` into Minecraft.
-2. Open the target world settings and enable **Survival AI - Live Minimap** under Behavior Packs.
-3. Enter the world. If an older copy is already installed, remove/disable that pack version before importing the updated one.
+Import the generated `.mcaddon`, then enable **Survival AI - Live Minimap** under Behavior Packs. Its linked icon Resource Pack should be enabled with it. If an older version is installed, disable/remove it before importing the update.

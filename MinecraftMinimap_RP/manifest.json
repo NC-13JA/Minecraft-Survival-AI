@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Survival AI - Minimap Icons",
+    "description": "Custom pixel-art glyphs for nearby mobs and ores.",
+    "uuid": "a6d9c2f4-1b7e-4d2a-9c51-6f0b8e3d7214",
+    "version": [
+      1,
+      2,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      26,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "b7e0d3a5-2c8f-4e1b-8d62-7a1c9f4e8305",
+      "version": [
+        1,
+        2,
+        0
+      ]
+    }
+  ]
+}
