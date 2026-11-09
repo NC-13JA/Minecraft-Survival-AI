@@ -1,0 +1,2 @@
+Target: Minecraft Bedrock 1.26.60.x
+Script API: @minecraft/server 2.11.0
